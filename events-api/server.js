@@ -6,9 +6,11 @@ import { requestId } from './middleware/requestId.js';
 import { logger } from './middleware/logger.js';
 import { notFound } from './middleware/notFound.js';
 import { errorHandler } from './middleware/errorHandler.js';
+import { env } from './config/env.js';
+import { validate } from './middleware/validate.js';
+import { createEventSchema } from './schemas/event.schemas.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
 app.use(requestId);
 app.use(logger);
@@ -23,14 +25,10 @@ app.get('/api/events-from-file', async (req, res, next) => {
     }
 });
 
-app.post('/api/events-from-file', async (req, res, next) => {
+app.post('/api/events-from-file', validate(createEventSchema), async (req, res, next) => {
     try {
-        const { title, date } = req.body ?? {};
-        if (!title || !date) {
-            return next(Object.assign(new Error("The 'title' and 'date' fields are mandatory"), { statusCode: 400 }));
-        }
         const events = await readEvents();
-        const newEvent = { id: randomUUID(), title, date };
+        const newEvent = { id: randomUUID(), ...req.body };
         events.push(newEvent);
         await writeEvents(events);
         res.status(201).json(newEvent);
@@ -42,6 +40,7 @@ app.post('/api/events-from-file', async (req, res, next) => {
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(PORT, () => {
-    console.log(`Server started on http://localhost:${PORT}`);
+app.listen(env.PORT, () => {
+    console.log(`Server started on http://localhost:${env.PORT}`);
+    console.log(`Environment: ${env.NODE_ENV}`);
 });
